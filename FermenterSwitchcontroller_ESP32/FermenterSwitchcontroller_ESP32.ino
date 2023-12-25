@@ -267,21 +267,7 @@ void setup(void) {
   } else {
     Serial.println("failed to mount FS");
   }
-  WiFi.hostname(String(host));
-
-  WiFi.begin(ssid, pword);  // Connect to the network
-  Serial.print("Connecting to ");
-  Serial.print(ssid);
-  Serial.println(" ...");
-
-  int i = 0;
-  while (WiFi.status() != WL_CONNECTED) {  // Wait for the Wi-Fi to connect
-    delay(1000);
-    Serial.print(++i);
-    Serial.print(' ');
-  }  //if you get here you have connected to the WiFi
-  Serial.println("connected...yay :)");
-
+  connectWifi();
   // Print the IP address
   Serial.println(WiFi.localIP());
   WiFi.mode(WIFI_STA);
@@ -414,6 +400,12 @@ void loop() {
 
   if (postData) {
     Serial.println("Posting....");
+    if ((WiFi.status() != WL_CONNECTED)) {
+      delay(1000);
+      Serial.println("Reconnecting to WiFi...");
+      WiFi.disconnect();
+      WiFi.reconnect();
+    }
     float currentGoal = 0.0f;
     if (slowFlag == 1) {
       currentGoal = currentStep;
@@ -488,14 +480,8 @@ void updateTemperatures() {
 }
 
 void postReadingData(float fermenter, float chamber, int finalTemperature, float avgChange, float tolerance) {
-  WiFiClient client;
-  ThingSpeak.begin(client);  // Initialize ThingSpeak
-  Serial.println("About to post!");
-  float postReading = fermenter;
-  if (fermenter < 5) {
-    postReading = fermenterTemp + avgChange;
-  }
-  ThingSpeak.setField(1, postReading);
+  connectWifi();
+  ThingSpeak.setField(1, fermenter);
   ThingSpeak.setField(2, chamber);
   ThingSpeak.setField(3, finalTemperature);
   ThingSpeak.setField(4, controllerMode);
@@ -561,4 +547,28 @@ String uptimeString(unsigned long timeElapsed) {
   Serial.print("Uptime String: ");
   Serial.println(retVal);
   return retVal;
+}
+
+
+void connectWifi() {
+  WiFi.hostname(String(host));
+
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.begin(ssid, pword);  // Connect to the network
+    Serial.print("Connecting to ");
+    Serial.print(ssid);
+    Serial.println(" ...");
+
+    int i = 1;
+    while (WiFi.status() != WL_CONNECTED && i < 8) {  // Wait for the Wi-Fi to connect
+      delay(1000 * i);
+      Serial.print(++i);
+      Serial.print(' ');
+    }  //if you get here you have connected to the WiFi
+
+    if (i >= 8) {
+      ESP.restart();
+    }
+  }
+  Serial.println("connected...yay :)");
 }
